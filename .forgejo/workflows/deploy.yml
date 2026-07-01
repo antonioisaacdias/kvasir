@@ -19,7 +19,7 @@ jobs:
       - name: Ship image to truenas and load it
         run: |
           scp /tmp/kvasir.tar.gz truenas:/tmp/kvasir.tar.gz
-          ssh truenas 'gunzip -c /tmp/kvasir.tar.gz | docker load'
+          ssh truenas 'gunzip -c /tmp/kvasir.tar.gz | sudo docker load'
 
       - name: Update Custom App
         run: |
