@@ -37,7 +37,7 @@ export const gutenbergAdapter: SourceAdapter = {
     );
   },
 
-  async download(externalId, fetchFn = fetch, signal) {
+  async download(externalId, fetchFn = fetch, signal = undefined) {
     const bookRes = await fetchFn(`https://gutendex.com/books/${externalId}`, { signal });
     const book = (await bookRes.json()) as GutendexBook;
     const epubUrl = book.formats?.['application/epub+zip'];

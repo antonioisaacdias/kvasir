@@ -4,7 +4,7 @@ import { useTranslation } from '../i18n/useTranslation';
 import { LanguageToggle } from '../i18n/LanguageToggle';
 import { Spinner } from '../ui/Spinner';
 
-export function AuthGate({ children }: { children: ReactNode }) {
+export function AuthGate({ children }: { readonly children: ReactNode }) {
   const { t } = useTranslation();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [mode, setMode] = useState<'login' | 'register'>('login');

@@ -62,7 +62,7 @@ function slugSearchTerms(id: string): string {
   const segments = id.split('/').filter(Boolean);
   const ebooksIndex = segments.indexOf('ebooks');
   const bookSlug = ebooksIndex >= 0 ? segments[ebooksIndex + 2] : undefined;
-  return (bookSlug ?? segments.pop() ?? id).replace(/-/g, ' ');
+  return (bookSlug ?? segments.pop() ?? id).replaceAll('-', ' ');
 }
 
 async function fetchEntry(id: string, fetchFn: typeof fetch, signal?: AbortSignal): Promise<AtomEntry | undefined> {
@@ -90,7 +90,7 @@ export const standardEbooksAdapter: SourceAdapter = {
     );
   },
 
-  async download(externalId, fetchFn = fetch, signal) {
+  async download(externalId, fetchFn = fetch, signal = undefined) {
     const entry = await fetchEntry(externalId, fetchFn, signal);
     const epubUrl = entry && acquisitionLink(entry);
     if (!epubUrl) {

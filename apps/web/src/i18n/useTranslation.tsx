@@ -16,8 +16,8 @@ function readStoredLang(): Lang {
   return stored === 'pt-BR' ? 'pt-BR' : 'en';
 }
 
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(readStoredLang);
+export function I18nProvider({ children }: { readonly children: ReactNode }) {
+  const [langState, setLangState] = useState<Lang>(readStoredLang);
 
   function setLang(next: Lang) {
     localStorage.setItem(STORAGE_KEY, next);
@@ -25,13 +25,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<I18nContextValue>(
-    () => ({ lang, setLang, t: (key) => dictionary[lang][key] }),
-    [lang],
+    () => ({ lang: langState, setLang, t: (key) => dictionary[langState][key] }),
+    [langState],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocated with its provider, same pattern as Tormod
 export function useTranslation(): I18nContextValue {
   const ctx = useContext(I18nContext);
   if (!ctx) throw new Error('useTranslation must be used within I18nProvider');

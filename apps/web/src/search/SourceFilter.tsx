@@ -7,8 +7,8 @@ export function SourceFilter({
   state,
   onChange,
 }: {
-  state: SourceFilterState;
-  onChange: (next: SourceFilterState) => void;
+  readonly state: SourceFilterState;
+  readonly onChange: (next: SourceFilterState) => void;
 }) {
   return (
     <div className="flex gap-4 text-sm text-slate-600">
@@ -18,7 +18,7 @@ export function SourceFilter({
           checked={state.gutenberg}
           onChange={(e) => onChange({ ...state, gutenberg: e.target.checked })}
         />
-        Gutenberg
+        <span>Gutenberg</span>
       </label>
       <label className="flex items-center gap-1.5">
         <input
@@ -26,7 +26,7 @@ export function SourceFilter({
           checked={state['standard-ebooks']}
           onChange={(e) => onChange({ ...state, 'standard-ebooks': e.target.checked })}
         />
-        Standard Ebooks
+        <span>Standard Ebooks</span>
       </label>
     </div>
   );

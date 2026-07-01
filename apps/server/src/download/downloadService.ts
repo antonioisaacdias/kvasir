@@ -1,6 +1,7 @@
 import { createWriteStream, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
+import type { ReadableStream as NodeWebReadableStream } from 'node:stream/web';
 import { pipeline } from 'node:stream/promises';
 import type Database from 'better-sqlite3';
 import type { SourceAdapter } from '../adapters/types.js';
@@ -95,7 +96,11 @@ async function downloadToFile(
   const { stream: webStream, totalBytes } = await adapter.download(externalId, undefined, signal);
   const tracked = trackProgress(webStream, totalBytes, onProgress);
   try {
-    await pipeline(Readable.fromWeb(tracked as never), createWriteStream(filePath), { signal });
+    await pipeline(
+      Readable.fromWeb(tracked as unknown as NodeWebReadableStream),
+      createWriteStream(filePath),
+      { signal },
+    );
   } catch (err) {
     try {
       unlinkSync(filePath);

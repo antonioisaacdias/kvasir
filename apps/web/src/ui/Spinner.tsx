@@ -1,4 +1,4 @@
-export function Spinner({ className = '' }: { className?: string }) {
+export function Spinner({ className = '' }: { readonly className?: string }) {
   return (
     <svg
       className={`h-4 w-4 animate-spin text-current ${className}`}

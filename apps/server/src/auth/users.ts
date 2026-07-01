@@ -31,7 +31,7 @@ export async function verifyCredentials(
   const row = db.prepare('SELECT username, password_hash AS passwordHash FROM users WHERE id = 1').get() as
     | { username: string; passwordHash: string }
     | undefined;
-  if (!row || row.username !== username) return undefined;
+  if (row?.username !== username) return undefined;
   const ok = await verifyPassword(row.passwordHash, password);
   return ok ? { id: 1, username: row.username } : undefined;
 }

@@ -9,7 +9,6 @@ export function DownloadsList() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    setError(false);
     listDownloads()
       .then(setDownloads)
       .catch(() => setError(true));

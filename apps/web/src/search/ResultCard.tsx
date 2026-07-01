@@ -15,9 +15,9 @@ export function ResultCard({
   alreadyDownloaded = false,
   onDownloaded,
 }: {
-  result: SearchResult;
-  alreadyDownloaded?: boolean;
-  onDownloaded?: () => void;
+  readonly result: SearchResult;
+  readonly alreadyDownloaded?: boolean;
+  readonly onDownloaded?: () => void;
 }) {
   const { t } = useTranslation();
   const { addToast } = useToast();
@@ -60,7 +60,7 @@ export function ResultCard({
   }[effectiveStatus];
 
   const progressPercent =
-    progress?.totalBytes != null ? Math.min(100, Math.round((progress.bytesDownloaded / progress.totalBytes) * 100)) : null;
+    progress?.totalBytes == null ? null : Math.min(100, Math.round((progress.bytesDownloaded / progress.totalBytes) * 100));
 
   return (
     <div className="flex flex-col gap-2 rounded border bg-white p-3">

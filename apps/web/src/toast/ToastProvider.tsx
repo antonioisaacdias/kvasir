@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
 export type ToastVariant = 'success' | 'error';
 
@@ -23,7 +23,7 @@ const AUTO_DISMISS_MS: Record<ToastVariant, number> = {
 
 let nextId = 0;
 
-export function ToastProvider({ children }: { children: ReactNode }) {
+export function ToastProvider({ children }: { readonly children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const dismissToast = useCallback((id: number) => {
@@ -39,11 +39,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [dismissToast],
   );
 
-  return (
-    <ToastContext.Provider value={{ toasts, addToast, dismissToast }}>{children}</ToastContext.Provider>
+  const value = useMemo<ToastContextValue>(
+    () => ({ toasts, addToast, dismissToast }),
+    [toasts, addToast, dismissToast],
   );
+
+  return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocated with its provider, same pattern as Tormod
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error('useToast must be used within ToastProvider');
