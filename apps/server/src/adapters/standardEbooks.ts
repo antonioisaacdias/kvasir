@@ -1,5 +1,5 @@
 import { XMLParser } from 'fast-xml-parser';
-import type { SearchResult, SourceAdapter } from './types';
+import type { SearchResult, SourceAdapter } from './types.js';
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
 

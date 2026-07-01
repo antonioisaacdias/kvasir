@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import { setCookie, getCookie } from 'hono/cookie';
 import type { Context } from 'hono';
 import type Database from 'better-sqlite3';
-import { hasUser, registerUser, verifyCredentials } from './users';
-import { createSession, verifySession, deleteSession } from './sessions';
+import { hasUser, registerUser, verifyCredentials } from './users.js';
+import { createSession, verifySession, deleteSession } from './sessions.js';
 
 const COOKIE_NAME = 'kvasir_session';
 

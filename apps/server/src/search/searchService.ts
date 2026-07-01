@@ -1,4 +1,4 @@
-import type { SearchResult, SourceAdapter } from '../adapters/types';
+import type { SearchResult, SourceAdapter } from '../adapters/types.js';
 
 export interface SearchError {
   source: string;

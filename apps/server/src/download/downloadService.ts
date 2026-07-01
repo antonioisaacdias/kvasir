@@ -3,8 +3,8 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type Database from 'better-sqlite3';
-import type { SourceAdapter } from '../adapters/types';
-import { findDownload, recordDownload } from '../db/downloads';
+import type { SourceAdapter } from '../adapters/types.js';
+import { findDownload, recordDownload } from '../db/downloads.js';
 
 export class AlreadyDownloadedError extends Error {
   constructor(source: string, externalId: string) {

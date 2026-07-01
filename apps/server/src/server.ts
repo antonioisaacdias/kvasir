@@ -1,8 +1,8 @@
 import { serve } from '@hono/node-server';
-import { createApp } from './http/app';
-import { mountStaticFrontend } from './http/staticServe';
-import { openDb } from './db';
-import { enabledAdapters } from './adapters/registry';
+import { createApp } from './http/app.js';
+import { mountStaticFrontend } from './http/staticServe.js';
+import { openDb } from './db/index.js';
+import { enabledAdapters } from './adapters/registry.js';
 
 const dataDir = process.env.KVASIR_DATA_DIR ?? '/data';
 const ingestDir = process.env.KVASIR_INGEST_DIR ?? '/cwa-book-ingest';

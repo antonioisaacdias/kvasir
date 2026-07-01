@@ -1,4 +1,4 @@
-import type { SearchResult, SourceAdapter } from './types';
+import type { SearchResult, SourceAdapter } from './types.js';
 
 interface GutendexAuthor {
   name: string;

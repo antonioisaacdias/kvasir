@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { hashPassword, verifyPassword } from './password';
+import { hashPassword, verifyPassword } from './password.js';
 
 export interface User {
   id: number;

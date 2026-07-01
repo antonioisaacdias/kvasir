@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import type Database from 'better-sqlite3';
-import { createAuthRoutes, requireSession } from '../auth/http';
-import { searchAllSources } from '../search/searchService';
-import { downloadBook, AlreadyDownloadedError } from '../download/downloadService';
-import { enabledAdapters } from '../adapters/registry';
-import type { SourceAdapter } from '../adapters/types';
+import { createAuthRoutes, requireSession } from '../auth/http.js';
+import { searchAllSources } from '../search/searchService.js';
+import { downloadBook, AlreadyDownloadedError } from '../download/downloadService.js';
+import { enabledAdapters } from '../adapters/registry.js';
+import type { SourceAdapter } from '../adapters/types.js';
 
 export interface AppDeps {
   db: Database.Database;
