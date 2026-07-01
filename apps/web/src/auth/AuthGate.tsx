@@ -14,12 +14,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const res = mode === 'login' ? await login(username, password) : await register(username, password);
-    if (res.ok) {
-      setAuthenticated(true);
-    } else {
-      const body = await res.json().catch(() => ({}));
-      setError(body.error ?? t('authError'));
+    try {
+      const res = mode === 'login' ? await login(username, password) : await register(username, password);
+      if (res.ok) {
+        setAuthenticated(true);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? t('authError'));
+      }
+    } catch {
+      setError(t('authError'));
     }
   }
 

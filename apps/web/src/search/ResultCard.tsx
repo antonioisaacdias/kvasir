@@ -8,10 +8,14 @@ export function ResultCard({ result }: { result: SearchResult }) {
 
   async function handleDownload() {
     setStatus('downloading');
-    const res = await download(result);
-    if (res.status === 201) setStatus('done');
-    else if (res.status === 409) setStatus('already');
-    else setStatus('error');
+    try {
+      const res = await download(result);
+      if (res.status === 201) setStatus('done');
+      else if (res.status === 409) setStatus('already');
+      else setStatus('error');
+    } catch {
+      setStatus('error');
+    }
   }
 
   const label = {
