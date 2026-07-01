@@ -62,6 +62,16 @@ de múltiplos usuários no v1).
 ### Source Adapter (interface)
 
 ```ts
+interface SearchResult {
+  source: string;
+  externalId: string;
+  title: string;
+  author?: string;
+  coverUrl?: string;   // capa, quando a fonte fornecer
+  language?: string;   // código de idioma (ex: "en"), quando a fonte fornecer
+  subjects?: string[]; // assuntos/tags/gêneros, quando a fonte fornecer
+}
+
 interface SourceAdapter {
   id: string; // "gutenberg" | "standard-ebooks" | ...
   search(query: string): Promise<SearchResult[]>;
@@ -70,7 +80,9 @@ interface SourceAdapter {
 ```
 
 Cada fonte implementa a interface. Adicionar fonte nova = novo adapter, zero mudança no resto do
-sistema. v1 implementa:
+sistema. Os campos `coverUrl`/`language`/`subjects` são opcionais — cada adapter preenche o que a fonte
+oferecer (Gutendex traz capa via `formats["image/jpeg"]`, `languages[]`, `subjects[]`; Standard Ebooks
+OPDS traz capa via `link[rel="http://opds-spec.org/image"]` e assuntos via `<category>`). v1 implementa:
 
 - **`gutenberg`** — via API Gutendex (JSON).
 - **`standard-ebooks`** — via catálogo OPDS (Atom feed).
@@ -79,9 +91,15 @@ Estrutura pronta pra adapters futuros (outras línguas/fontes de domínio públi
 
 ### Busca
 
-`GET /api/search?q=<termo>` → backend faz fan-out em paralelo pros adapters habilitados
-(`Promise.allSettled`) → agrega resultados com campo `source` visível. Erro em um adapter não derruba a
-busca — resultado parcial com aviso (ex: "Standard Ebooks indisponível").
+`GET /api/search?q=<termo>` → backend faz fan-out em paralelo **em todos os adapters habilitados**
+(`Promise.allSettled`), sempre — não há parâmetro de fonte na requisição. Agrega resultados com campo
+`source` visível. Erro em um adapter não derruba a busca — resultado parcial com aviso (ex: "Standard
+Ebooks indisponível").
+
+**Filtro de fonte no front é client-side**: checkboxes por fonte (Gutenberg / Standard Ebooks) só
+escondem/mostram resultados já retornados pela mesma resposta — não disparam nova busca nem mudam a
+chamada à API. Justificativa: simplicidade (sem estado de filtro no backend) e a resposta já vem
+completa; esconder é barato, refazer fan-out não traz benefício aqui.
 
 ### Download
 
@@ -104,6 +122,18 @@ CREATE TABLE downloads (
   PRIMARY KEY (source, external_id)
 );
 ```
+
+## i18n da interface
+
+Interface **padrão em inglês**, com opção de traduzir pra pt-BR via toggle. Abordagem: dicionário custom
+simples (não `i18next`/`react-i18next` — a UI tem só ~20-30 strings, não justifica a dependência).
+
+- Objeto `en`/`pt-BR` com as strings da UI (labels de botão, placeholders, mensagens de erro/status).
+- Hook `useTranslation()` (context próprio) resolve a string pelo idioma ativo.
+- Idioma ativo persiste em `localStorage`, default `en` quando não há preferência salva.
+- Toggle visível no canto da tela (ex: "EN · PT-BR").
+- Strings do **backend** (mensagens de erro de API) continuam em inglês sempre — só a UI traduz;
+  evita duplicar i18n no server para um v1 pequeno.
 
 ## Testes
 
