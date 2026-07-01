@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
@@ -83,5 +83,6 @@ describe('downloadBook', () => {
 
     await expect(downloadBook(db, ingestDir, adapter, meta)).rejects.toThrow('connection reset');
     expect(findDownload(db, 'gutenberg', '12')).toBeUndefined();
+    expect(readdirSync(ingestDir)).toEqual([]);
   });
 });

@@ -22,7 +22,8 @@ export interface BookMeta {
 
 function safeFileName(title: string, externalId: string): string {
   const slug = title.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
-  return `${slug || 'book'}-${externalId}.epub`;
+  const safeId = externalId.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+  return `${slug || 'book'}-${safeId || 'id'}.epub`;
 }
 
 export async function downloadBook(
