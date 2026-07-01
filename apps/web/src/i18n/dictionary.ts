@@ -24,6 +24,8 @@ export const dictionary = {
     noDownloadsYet: 'Nothing downloaded yet.',
     loading: 'Loading…',
     loadError: 'Failed to load, try again',
+    toastDownloaded: 'Downloaded "{title}"',
+    toastDownloadError: 'Failed to download "{title}"',
   },
   'pt-BR': {
     firstAccess: 'Primeiro acesso — crie sua conta',
@@ -50,6 +52,8 @@ export const dictionary = {
     noDownloadsYet: 'Nada baixado ainda.',
     loading: 'Carregando…',
     loadError: 'Falha ao carregar, tenta de novo',
+    toastDownloaded: 'Baixado "{title}"',
+    toastDownloadError: 'Falha ao baixar "{title}"',
   },
 } as const;
 

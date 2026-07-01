@@ -1,20 +1,29 @@
 import { useState } from 'react';
 import { download, type SearchResult } from '../lib/api';
 import { useTranslation } from '../i18n/useTranslation';
+import { useToast } from '../toast/ToastProvider';
 
 export function ResultCard({ result }: { result: SearchResult }) {
   const { t } = useTranslation();
+  const { addToast } = useToast();
   const [status, setStatus] = useState<'idle' | 'downloading' | 'done' | 'already' | 'error'>('idle');
 
   async function handleDownload() {
     setStatus('downloading');
     try {
       const res = await download(result);
-      if (res.status === 201) setStatus('done');
-      else if (res.status === 409) setStatus('already');
-      else setStatus('error');
+      if (res.status === 201) {
+        setStatus('done');
+        addToast(t('toastDownloaded').replace('{title}', result.title), 'success');
+      } else if (res.status === 409) {
+        setStatus('already');
+      } else {
+        setStatus('error');
+        addToast(t('toastDownloadError').replace('{title}', result.title), 'error');
+      }
     } catch {
       setStatus('error');
+      addToast(t('toastDownloadError').replace('{title}', result.title), 'error');
     }
   }
 

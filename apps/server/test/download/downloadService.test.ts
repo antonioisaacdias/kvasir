@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -84,5 +84,67 @@ describe('downloadBook', () => {
     await expect(downloadBook(db, ingestDir, adapter, meta)).rejects.toThrow('connection reset');
     expect(findDownload(db, 'gutenberg', '12')).toBeUndefined();
     expect(readdirSync(ingestDir)).toEqual([]);
+  });
+
+  describe('retry on transient network errors', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('retries a transient network error and eventually succeeds', async () => {
+      const adapter: SourceAdapter = {
+        id: 'gutenberg',
+        async search() {
+          return [];
+        },
+        download: vi
+          .fn()
+          .mockRejectedValueOnce(new TypeError('fetch failed'))
+          .mockResolvedValueOnce(streamOf([1, 2, 3])),
+      };
+      const meta = { source: 'gutenberg', externalId: '20', title: 'Retry Me', author: 'Someone' };
+
+      const promise = downloadBook(db, ingestDir, adapter, meta);
+      await vi.advanceTimersByTimeAsync(5000);
+      const filePath = await promise;
+
+      expect(existsSync(filePath)).toBe(true);
+      expect(adapter.download).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not retry a non-network error', async () => {
+      const adapter: SourceAdapter = {
+        id: 'gutenberg',
+        async search() {
+          return [];
+        },
+        download: vi.fn().mockRejectedValue(new Error('no epub format available')),
+      };
+      const meta = { source: 'gutenberg', externalId: '21', title: 'No Epub', author: 'Someone' };
+
+      await expect(downloadBook(db, ingestDir, adapter, meta)).rejects.toThrow('no epub format available');
+      expect(adapter.download).toHaveBeenCalledTimes(1);
+    });
+
+    it('gives up after repeated transient network errors', async () => {
+      const adapter: SourceAdapter = {
+        id: 'gutenberg',
+        async search() {
+          return [];
+        },
+        download: vi.fn().mockRejectedValue(new TypeError('fetch failed')),
+      };
+      const meta = { source: 'gutenberg', externalId: '22', title: 'Always Fails', author: 'Someone' };
+
+      const promise = downloadBook(db, ingestDir, adapter, meta);
+      const assertion = expect(promise).rejects.toThrow('fetch failed');
+      await vi.advanceTimersByTimeAsync(10000);
+      await assertion;
+      expect(adapter.download).toHaveBeenCalledTimes(3);
+    });
   });
 });

@@ -26,6 +26,44 @@ function safeFileName(title: string, externalId: string): string {
   return `${slug || 'book'}-${safeId || 'id'}.epub`;
 }
 
+function isTransientNetworkError(err: unknown): boolean {
+  return err instanceof TypeError && err.message === 'fetch failed';
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3, baseDelayMs = 1000): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (!isTransientNetworkError(err) || attempt === attempts - 1) {
+        throw err;
+      }
+      await sleep(baseDelayMs * (attempt + 1));
+    }
+  }
+  throw lastErr;
+}
+
+async function downloadToFile(adapter: SourceAdapter, externalId: string, filePath: string): Promise<void> {
+  const webStream = await adapter.download(externalId);
+  try {
+    await pipeline(Readable.fromWeb(webStream as never), createWriteStream(filePath));
+  } catch (err) {
+    try {
+      unlinkSync(filePath);
+    } catch {
+      // best-effort cleanup; nothing to do if the partial file is already gone
+    }
+    throw err;
+  }
+}
+
 export async function downloadBook(
   db: Database.Database,
   ingestDir: string,
@@ -37,18 +75,8 @@ export async function downloadBook(
   }
 
   const filePath = join(ingestDir, safeFileName(meta.title, meta.externalId));
-  const webStream = await adapter.download(meta.externalId);
 
-  try {
-    await pipeline(Readable.fromWeb(webStream as never), createWriteStream(filePath));
-  } catch (err) {
-    try {
-      unlinkSync(filePath);
-    } catch {
-      // best-effort cleanup; nothing to do if the partial file is already gone
-    }
-    throw err;
-  }
+  await withRetry(() => downloadToFile(adapter, meta.externalId, filePath));
 
   recordDownload(db, {
     source: meta.source,
