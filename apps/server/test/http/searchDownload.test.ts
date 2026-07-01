@@ -1,19 +1,22 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/db/index';
 import { createApp } from '../../src/http/app';
-import type { SourceAdapter } from '../../src/adapters/types';
+import type { SourceAdapter, DownloadStream } from '../../src/adapters/types';
 
-function streamOf(bytes: number[]): ReadableStream<Uint8Array> {
-  return new ReadableStream({
-    start(controller) {
-      controller.enqueue(new Uint8Array(bytes));
-      controller.close();
-    },
-  });
+function streamOf(bytes: number[], totalBytes: number | null = bytes.length): DownloadStream {
+  return {
+    totalBytes,
+    stream: new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(bytes));
+        controller.close();
+      },
+    }),
+  };
 }
 
 function fakeAdapter(): SourceAdapter {
@@ -26,6 +29,18 @@ function fakeAdapter(): SourceAdapter {
       return streamOf([1, 2, 3]);
     },
   };
+}
+
+async function parseSSE(res: Response): Promise<Array<Record<string, unknown>>> {
+  const text = await res.text();
+  return text
+    .split('\n\n')
+    .filter(Boolean)
+    .map((chunk) => {
+      const dataLine = chunk.split('\n').find((line) => line.startsWith('data: '));
+      return dataLine ? (JSON.parse(dataLine.slice('data: '.length)) as Record<string, unknown>) : null;
+    })
+    .filter((event): event is Record<string, unknown> => event !== null);
 }
 
 async function loggedInApp(db: Database.Database, ingestDir: string, adapters: SourceAdapter[]) {
@@ -55,7 +70,7 @@ describe('GET /api/search', () => {
 });
 
 describe('POST /api/download', () => {
-  it('downloads a book and returns its stored metadata', async () => {
+  it('streams progress events and a final done event', async () => {
     const db = new Database(':memory:');
     migrate(db);
     const { app, cookie } = await loggedInApp(db, mkdtempSync(join(tmpdir(), 'kvasir-')), [fakeAdapter()]);
@@ -66,20 +81,59 @@ describe('POST /api/download', () => {
       body: JSON.stringify({ source: 'gutenberg', externalId: '11', title: 'Alice', author: 'Someone' }),
     });
 
-    expect(res.status).toBe(201);
-    expect(await res.json()).toEqual({ status: 'downloaded' });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/event-stream');
+
+    const events = await parseSSE(res);
+    expect(events).toContainEqual({ type: 'progress', bytesDownloaded: 3, totalBytes: 3 });
+    expect(events[events.length - 1]).toEqual({ type: 'done' });
   });
 
-  it('returns 409 for an already-downloaded book', async () => {
+  it('streams a retrying event before recovering from a transient network error', async () => {
+    vi.useFakeTimers();
+    try {
+      const db = new Database(':memory:');
+      migrate(db);
+      const flakyAdapter: SourceAdapter = {
+        id: 'gutenberg',
+        async search() {
+          return [];
+        },
+        download: vi
+          .fn()
+          .mockRejectedValueOnce(new TypeError('fetch failed'))
+          .mockResolvedValueOnce(streamOf([1, 2, 3])),
+      };
+      const { app, cookie } = await loggedInApp(db, mkdtempSync(join(tmpdir(), 'kvasir-')), [flakyAdapter]);
+
+      const resPromise = app.request('/api/download', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({ source: 'gutenberg', externalId: '11', title: 'Alice', author: 'Someone' }),
+      });
+      await vi.advanceTimersByTimeAsync(5000);
+      const events = await parseSSE(await resPromise);
+
+      expect(events).toContainEqual({ type: 'retrying', attempt: 2 });
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('streams an already event for an already-downloaded book', async () => {
     const db = new Database(':memory:');
     migrate(db);
     const { app, cookie } = await loggedInApp(db, mkdtempSync(join(tmpdir(), 'kvasir-')), [fakeAdapter()]);
     const body = JSON.stringify({ source: 'gutenberg', externalId: '11', title: 'Alice', author: 'Someone' });
 
-    await app.request('/api/download', { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body });
+    await parseSSE(
+      await app.request('/api/download', { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body }),
+    );
     const res = await app.request('/api/download', { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body });
 
-    expect(res.status).toBe(409);
+    const events = await parseSSE(res);
+    expect(events[events.length - 1]).toEqual({ type: 'already' });
   });
 
   it('returns 400 when a required field is missing', async () => {
@@ -136,11 +190,13 @@ describe('GET /api/downloads', () => {
     migrate(db);
     const { app, cookie } = await loggedInApp(db, mkdtempSync(join(tmpdir(), 'kvasir-')), [fakeAdapter()]);
 
-    await app.request('/api/download', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', cookie },
-      body: JSON.stringify({ source: 'gutenberg', externalId: '11', title: 'Alice', author: 'Someone' }),
-    });
+    await parseSSE(
+      await app.request('/api/download', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({ source: 'gutenberg', externalId: '11', title: 'Alice', author: 'Someone' }),
+      }),
+    );
 
     const res = await app.request('/api/downloads', { headers: { cookie } });
     expect(res.status).toBe(200);

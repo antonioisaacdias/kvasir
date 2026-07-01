@@ -6,15 +6,18 @@ import Database from 'better-sqlite3';
 import { migrate } from '../../src/db/index';
 import { findDownload } from '../../src/db/downloads';
 import { downloadBook, AlreadyDownloadedError } from '../../src/download/downloadService';
-import type { SourceAdapter } from '../../src/adapters/types';
+import type { SourceAdapter, DownloadStream } from '../../src/adapters/types';
 
-function streamOf(bytes: number[]): ReadableStream<Uint8Array> {
-  return new ReadableStream({
-    start(controller) {
-      controller.enqueue(new Uint8Array(bytes));
-      controller.close();
-    },
-  });
+function streamOf(bytes: number[], totalBytes: number | null = bytes.length): DownloadStream {
+  return {
+    totalBytes,
+    stream: new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(bytes));
+        controller.close();
+      },
+    }),
+  };
 }
 
 describe('downloadBook', () => {
@@ -50,6 +53,29 @@ describe('downloadBook', () => {
     expect(findDownload(db, 'gutenberg', '11')?.title).toBe("Alice's Adventures in Wonderland");
   });
 
+  it('reports progress as bytes flow through, with the total from the adapter', async () => {
+    const adapter: SourceAdapter = {
+      id: 'gutenberg',
+      async search() {
+        return [];
+      },
+      async download() {
+        return streamOf([1, 2, 3], 3);
+      },
+    };
+    const onProgress = vi.fn();
+
+    await downloadBook(
+      db,
+      ingestDir,
+      adapter,
+      { source: 'gutenberg', externalId: '13', title: 'Progress Test', author: 'Someone' },
+      onProgress,
+    );
+
+    expect(onProgress).toHaveBeenCalledWith({ bytesDownloaded: 3, totalBytes: 3 });
+  });
+
   it('refuses to re-download an already-recorded book', async () => {
     const adapter: SourceAdapter = {
       id: 'gutenberg',
@@ -72,11 +98,14 @@ describe('downloadBook', () => {
         return [];
       },
       async download() {
-        return new ReadableStream({
-          start(controller) {
-            controller.error(new Error('connection reset'));
-          },
-        });
+        return {
+          totalBytes: null,
+          stream: new ReadableStream({
+            start(controller) {
+              controller.error(new Error('connection reset'));
+            },
+          }),
+        };
       },
     };
     const meta = { source: 'gutenberg', externalId: '12', title: 'Broken', author: 'Nobody' };
@@ -114,6 +143,29 @@ describe('downloadBook', () => {
 
       expect(existsSync(filePath)).toBe(true);
       expect(adapter.download).toHaveBeenCalledTimes(2);
+    });
+
+    it('calls onRetry with the upcoming attempt number before each retry', async () => {
+      const adapter: SourceAdapter = {
+        id: 'gutenberg',
+        async search() {
+          return [];
+        },
+        download: vi
+          .fn()
+          .mockRejectedValueOnce(new TypeError('fetch failed'))
+          .mockRejectedValueOnce(new TypeError('fetch failed'))
+          .mockResolvedValueOnce(streamOf([1, 2, 3])),
+      };
+      const meta = { source: 'gutenberg', externalId: '23', title: 'Retry Twice', author: 'Someone' };
+      const onRetry = vi.fn();
+
+      const promise = downloadBook(db, ingestDir, adapter, meta, undefined, undefined, onRetry);
+      await vi.advanceTimersByTimeAsync(10000);
+      await promise;
+
+      expect(onRetry).toHaveBeenNthCalledWith(1, 2);
+      expect(onRetry).toHaveBeenNthCalledWith(2, 3);
     });
 
     it('does not retry a non-network error', async () => {

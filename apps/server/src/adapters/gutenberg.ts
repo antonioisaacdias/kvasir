@@ -37,17 +37,18 @@ export const gutenbergAdapter: SourceAdapter = {
     );
   },
 
-  async download(externalId, fetchFn = fetch) {
-    const bookRes = await fetchFn(`https://gutendex.com/books/${externalId}`);
+  async download(externalId, fetchFn = fetch, signal) {
+    const bookRes = await fetchFn(`https://gutendex.com/books/${externalId}`, { signal });
     const book = (await bookRes.json()) as GutendexBook;
     const epubUrl = book.formats?.['application/epub+zip'];
     if (!epubUrl) {
       throw new Error(`no epub format available for gutenberg book ${externalId}`);
     }
-    const fileRes = await fetchFn(epubUrl);
+    const fileRes = await fetchFn(epubUrl, { signal });
     if (!fileRes.body) {
       throw new Error(`empty response body downloading gutenberg book ${externalId}`);
     }
-    return fileRes.body;
+    const contentLength = fileRes.headers.get('content-length');
+    return { stream: fileRes.body, totalBytes: contentLength ? Number(contentLength) : null };
   },
 };

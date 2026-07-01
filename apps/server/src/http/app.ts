@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
 import type Database from 'better-sqlite3';
 import { createAuthRoutes, requireSession } from '../auth/http.js';
 import { searchAllSources } from '../search/searchService.js';
@@ -53,15 +54,37 @@ export function createApp(deps?: Partial<AppDeps>) {
       if (!adapter) {
         return c.json({ error: `unknown source ${body.source}` }, 400);
       }
-      try {
-        await downloadBook(db, ingestDir, adapter, body);
-        return c.json({ status: 'downloaded' }, 201);
-      } catch (err) {
-        if (err instanceof AlreadyDownloadedError) {
-          return c.json({ error: err.message }, 409);
+
+      return streamSSE(c, async (stream) => {
+        const controller = new AbortController();
+        stream.onAbort(() => controller.abort());
+
+        try {
+          await downloadBook(
+            db,
+            ingestDir,
+            adapter,
+            body,
+            async (progress) => {
+              await stream.writeSSE({ data: JSON.stringify({ type: 'progress', ...progress }) });
+            },
+            controller.signal,
+            async (attempt) => {
+              await stream.writeSSE({ data: JSON.stringify({ type: 'retrying', attempt }) });
+            },
+          );
+          await stream.writeSSE({ data: JSON.stringify({ type: 'done' }) });
+        } catch (err) {
+          if (controller.signal.aborted) {
+            return;
+          }
+          if (err instanceof AlreadyDownloadedError) {
+            await stream.writeSSE({ data: JSON.stringify({ type: 'already' }) });
+          } else {
+            await stream.writeSSE({ data: JSON.stringify({ type: 'error', message: (err as Error).message }) });
+          }
         }
-        throw err;
-      }
+      });
     });
   }
 

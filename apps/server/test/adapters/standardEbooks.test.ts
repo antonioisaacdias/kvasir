@@ -78,19 +78,24 @@ describe('standardEbooksAdapter.download', () => {
     const fakeFetch = vi
       .fn()
       .mockResolvedValueOnce(new Response(FEED_XML, { status: 200 }))
-      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-length': '3' } }),
+      );
 
     const id = 'https://standardebooks.org/ebooks/lewis-carroll/alices-adventures-in-wonderland/john-tenniel';
-    const stream = await standardEbooksAdapter.download(id, fakeFetch as unknown as typeof fetch);
+    const result = await standardEbooksAdapter.download(id, fakeFetch as unknown as typeof fetch);
 
-    expect(stream).toBeDefined();
+    expect(result.stream).toBeDefined();
+    expect(result.totalBytes).toBe(3);
     expect(fakeFetch).toHaveBeenNthCalledWith(
       1,
       'https://standardebooks.org/feeds/opds/all?query=alices%20adventures%20in%20wonderland',
+      { signal: undefined },
     );
     expect(fakeFetch).toHaveBeenNthCalledWith(
       2,
       'https://standardebooks.org/ebooks/lewis-carroll/alices-adventures-in-wonderland/john-tenniel/downloads/lewis-carroll_alices-adventures-in-wonderland_john-tenniel.epub?source=feed',
+      { signal: undefined },
     );
   });
 });

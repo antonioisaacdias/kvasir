@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { listDownloads, type DownloadRecord } from '../lib/api';
 import { useTranslation } from '../i18n/useTranslation';
-import { Spinner } from './Spinner';
+import { Spinner } from '../ui/Spinner';
 
 export function DownloadsList() {
   const { t } = useTranslation();

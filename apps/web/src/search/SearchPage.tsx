@@ -1,13 +1,17 @@
-import { useMemo, useState } from 'react';
-import { search, type SearchOutcome } from '../lib/api';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { search, listDownloads, type SearchOutcome } from '../lib/api';
 import { ResultCard } from './ResultCard';
 import { SourceFilter, type SourceFilterState } from './SourceFilter';
-import { Spinner } from './Spinner';
+import { Spinner } from '../ui/Spinner';
 import { DownloadsList } from './DownloadsList';
 import { useTranslation } from '../i18n/useTranslation';
 import { LanguageToggle } from '../i18n/LanguageToggle';
 
 const ALL_SOURCES: SourceFilterState = { gutenberg: true, 'standard-ebooks': true };
+
+function downloadKey(source: string, externalId: string): string {
+  return `${source}:${externalId}`;
+}
 
 export function SearchPage() {
   const { t } = useTranslation();
@@ -16,6 +20,17 @@ export function SearchPage() {
   const [sourceFilter, setSourceFilter] = useState<SourceFilterState>(ALL_SOURCES);
   const [isSearching, setIsSearching] = useState(false);
   const [showDownloads, setShowDownloads] = useState(false);
+  const [downloadedKeys, setDownloadedKeys] = useState<Set<string> | null>(null);
+
+  const refreshDownloadedKeys = useCallback(() => {
+    listDownloads().then((downloads) => {
+      setDownloadedKeys(new Set(downloads.map((d) => downloadKey(d.source, d.externalId))));
+    });
+  }, []);
+
+  useEffect(() => {
+    refreshDownloadedKeys();
+  }, [refreshDownloadedKeys]);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -82,7 +97,12 @@ export function SearchPage() {
 
           <div className="space-y-2">
             {visibleResults.map((r) => (
-              <ResultCard key={`${r.source}-${r.externalId}`} result={r} />
+              <ResultCard
+                key={`${r.source}-${r.externalId}`}
+                result={r}
+                alreadyDownloaded={downloadedKeys?.has(downloadKey(r.source, r.externalId)) ?? false}
+                onDownloaded={refreshDownloadedKeys}
+              />
             ))}
           </div>
         </>

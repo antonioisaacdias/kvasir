@@ -65,8 +65,8 @@ function slugSearchTerms(id: string): string {
   return (bookSlug ?? segments.pop() ?? id).replace(/-/g, ' ');
 }
 
-async function fetchEntry(id: string, fetchFn: typeof fetch): Promise<AtomEntry | undefined> {
-  const res = await fetchFn(searchUrl(slugSearchTerms(id)));
+async function fetchEntry(id: string, fetchFn: typeof fetch, signal?: AbortSignal): Promise<AtomEntry | undefined> {
+  const res = await fetchFn(searchUrl(slugSearchTerms(id)), { signal });
   const feed = parser.parse(await res.text()) as AtomFeed;
   return asArray(feed.feed.entry).find((entry) => entry.id === id);
 }
@@ -90,16 +90,17 @@ export const standardEbooksAdapter: SourceAdapter = {
     );
   },
 
-  async download(externalId, fetchFn = fetch) {
-    const entry = await fetchEntry(externalId, fetchFn);
+  async download(externalId, fetchFn = fetch, signal) {
+    const entry = await fetchEntry(externalId, fetchFn, signal);
     const epubUrl = entry && acquisitionLink(entry);
     if (!epubUrl) {
       throw new Error(`no epub acquisition link found for standard-ebooks entry ${externalId}`);
     }
-    const fileRes = await fetchFn(epubUrl);
+    const fileRes = await fetchFn(epubUrl, { signal });
     if (!fileRes.body) {
       throw new Error(`empty response body downloading standard-ebooks entry ${externalId}`);
     }
-    return fileRes.body;
+    const contentLength = fileRes.headers.get('content-length');
+    return { stream: fileRes.body, totalBytes: contentLength ? Number(contentLength) : null };
   },
 };

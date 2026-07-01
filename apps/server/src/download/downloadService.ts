@@ -20,6 +20,14 @@ export interface BookMeta {
   author?: string;
 }
 
+export interface DownloadProgress {
+  bytesDownloaded: number;
+  totalBytes: number | null;
+}
+
+export type OnProgress = (progress: DownloadProgress) => void;
+export type OnRetry = (attempt: number) => void;
+
 function safeFileName(title: string, externalId: string): string {
   const slug = title.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
   const safeId = externalId.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
@@ -34,7 +42,12 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function withRetry<T>(fn: () => Promise<T>, attempts = 3, baseDelayMs = 1000): Promise<T> {
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  onRetry?: OnRetry,
+  attempts = 3,
+  baseDelayMs = 1000,
+): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
@@ -44,16 +57,45 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3, baseDelayMs = 10
       if (!isTransientNetworkError(err) || attempt === attempts - 1) {
         throw err;
       }
+      onRetry?.(attempt + 2);
       await sleep(baseDelayMs * (attempt + 1));
     }
   }
   throw lastErr;
 }
 
-async function downloadToFile(adapter: SourceAdapter, externalId: string, filePath: string): Promise<void> {
-  const webStream = await adapter.download(externalId);
+function trackProgress(
+  webStream: ReadableStream<Uint8Array>,
+  totalBytes: number | null,
+  onProgress?: OnProgress,
+): ReadableStream<Uint8Array> {
+  if (!onProgress) return webStream;
+  let bytesDownloaded = 0;
+  return webStream.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        bytesDownloaded += chunk.byteLength;
+        onProgress({ bytesDownloaded, totalBytes });
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+}
+
+// A retried attempt tracks bytes from zero again (it's a fresh stream), so a client
+// watching progress will see it drop back down after a retry — this reflects the real
+// byte count of the new attempt rather than a bug in the counter.
+async function downloadToFile(
+  adapter: SourceAdapter,
+  externalId: string,
+  filePath: string,
+  onProgress?: OnProgress,
+  signal?: AbortSignal,
+): Promise<void> {
+  const { stream: webStream, totalBytes } = await adapter.download(externalId, undefined, signal);
+  const tracked = trackProgress(webStream, totalBytes, onProgress);
   try {
-    await pipeline(Readable.fromWeb(webStream as never), createWriteStream(filePath));
+    await pipeline(Readable.fromWeb(tracked as never), createWriteStream(filePath), { signal });
   } catch (err) {
     try {
       unlinkSync(filePath);
@@ -69,6 +111,9 @@ export async function downloadBook(
   ingestDir: string,
   adapter: SourceAdapter,
   meta: BookMeta,
+  onProgress?: OnProgress,
+  signal?: AbortSignal,
+  onRetry?: OnRetry,
 ): Promise<string> {
   if (findDownload(db, meta.source, meta.externalId)) {
     throw new AlreadyDownloadedError(meta.source, meta.externalId);
@@ -76,7 +121,7 @@ export async function downloadBook(
 
   const filePath = join(ingestDir, safeFileName(meta.title, meta.externalId));
 
-  await withRetry(() => downloadToFile(adapter, meta.externalId, filePath));
+  await withRetry(() => downloadToFile(adapter, meta.externalId, filePath, onProgress, signal), onRetry);
 
   recordDownload(db, {
     source: meta.source,

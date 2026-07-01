@@ -51,12 +51,59 @@ describe('gutenbergAdapter.download', () => {
           { status: 200 },
         ),
       )
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-length': '3' } }),
+      );
+
+    const result = await gutenbergAdapter.download('11', fakeFetch as unknown as typeof fetch);
+
+    expect(result.stream).toBeDefined();
+    expect(result.totalBytes).toBe(3);
+    expect(fakeFetch).toHaveBeenNthCalledWith(1, 'https://gutendex.com/books/11', { signal: undefined });
+    expect(fakeFetch).toHaveBeenNthCalledWith(2, 'https://gutendex.com/cache/epub/11/pg11.epub', {
+      signal: undefined,
+    });
+  });
+
+  it('forwards an abort signal to both fetch calls', async () => {
+    const fakeFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            id: 11,
+            formats: { 'application/epub+zip': 'https://gutendex.com/cache/epub/11/pg11.epub' },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
+    const controller = new AbortController();
+
+    await gutenbergAdapter.download('11', fakeFetch as unknown as typeof fetch, controller.signal);
+
+    expect(fakeFetch).toHaveBeenNthCalledWith(1, 'https://gutendex.com/books/11', { signal: controller.signal });
+    expect(fakeFetch).toHaveBeenNthCalledWith(2, 'https://gutendex.com/cache/epub/11/pg11.epub', {
+      signal: controller.signal,
+    });
+  });
+
+  it('returns totalBytes null when the response has no content-length', async () => {
+    const fakeFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            id: 11,
+            formats: { 'application/epub+zip': 'https://gutendex.com/cache/epub/11/pg11.epub' },
+          }),
+          { status: 200 },
+        ),
+      )
       .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
 
-    const stream = await gutenbergAdapter.download('11', fakeFetch as unknown as typeof fetch);
+    const result = await gutenbergAdapter.download('11', fakeFetch as unknown as typeof fetch);
 
-    expect(stream).toBeDefined();
-    expect(fakeFetch).toHaveBeenNthCalledWith(1, 'https://gutendex.com/books/11');
-    expect(fakeFetch).toHaveBeenNthCalledWith(2, 'https://gutendex.com/cache/epub/11/pg11.epub');
+    expect(result.totalBytes).toBeNull();
   });
 });

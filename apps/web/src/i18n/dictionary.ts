@@ -26,6 +26,7 @@ export const dictionary = {
     loadError: 'Failed to load, try again',
     toastDownloaded: 'Downloaded "{title}"',
     toastDownloadError: 'Failed to download "{title}"',
+    retryingAttempt: 'Network hiccup, retrying (attempt {n})…',
   },
   'pt-BR': {
     firstAccess: 'Primeiro acesso — crie sua conta',
@@ -54,6 +55,7 @@ export const dictionary = {
     loadError: 'Falha ao carregar, tenta de novo',
     toastDownloaded: 'Baixado "{title}"',
     toastDownloadError: 'Falha ao baixar "{title}"',
+    retryingAttempt: 'Falha de rede, tentando de novo (tentativa {n})…',
   },
 } as const;
 
