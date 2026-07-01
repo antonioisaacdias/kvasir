@@ -10,6 +10,10 @@ export function hasUser(db: Database.Database): boolean {
   return db.prepare('SELECT 1 FROM users WHERE id = 1').get() !== undefined;
 }
 
+export function getUser(db: Database.Database): User | undefined {
+  return db.prepare('SELECT id, username FROM users WHERE id = 1').get() as User | undefined;
+}
+
 export async function registerUser(db: Database.Database, username: string, password: string): Promise<User> {
   if (hasUser(db)) {
     throw new Error('a user is already registered');

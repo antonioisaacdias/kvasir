@@ -81,3 +81,32 @@ describe('auth http flow', () => {
     expect(body).toEqual({ error: 'a user is already registered' });
   });
 });
+
+describe('GET /api/auth/me', () => {
+  let db: Database.Database;
+
+  beforeEach(() => {
+    db = new Database(':memory:');
+    migrate(db);
+  });
+
+  it('returns 401 with no session', async () => {
+    const app = createApp({ db, ingestDir: '/tmp' });
+    const res = await app.request('/api/auth/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns the current username with a valid session', async () => {
+    const app = createApp({ db, ingestDir: '/tmp' });
+    const register = await app.request('/api/auth/register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'odin', password: 'correct horse battery staple' }),
+    });
+    const cookie = cookieFrom(register);
+
+    const res = await app.request('/api/auth/me', { headers: { cookie } });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ username: 'odin' });
+  });
+});

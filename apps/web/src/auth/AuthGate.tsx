@@ -1,15 +1,20 @@
-import { useState, type ReactNode } from 'react';
-import { login, register } from '../lib/api';
+import { useEffect, useState, type ReactNode } from 'react';
+import { login, register, getCurrentUser } from '../lib/api';
 import { useTranslation } from '../i18n/useTranslation';
 import { LanguageToggle } from '../i18n/LanguageToggle';
+import { Spinner } from '../ui/Spinner';
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const [authenticated, setAuthenticated] = useState(false);
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCurrentUser().then((user) => setAuthenticated(user !== null));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,6 +30,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
     } catch {
       setError(t('authError'));
     }
+  }
+
+  if (authenticated === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100">
+        <Spinner className="h-6 w-6 text-slate-400" />
+      </div>
+    );
   }
 
   if (authenticated) return <>{children}</>;

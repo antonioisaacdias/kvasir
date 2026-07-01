@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { setCookie, getCookie } from 'hono/cookie';
 import type { Context } from 'hono';
 import type Database from 'better-sqlite3';
-import { hasUser, registerUser, verifyCredentials } from './users.js';
+import { hasUser, getUser, registerUser, verifyCredentials } from './users.js';
 import { createSession, verifySession, deleteSession } from './sessions.js';
 
 const COOKIE_NAME = 'kvasir_session';
@@ -34,6 +34,15 @@ export function createAuthRoutes(db: Database.Database) {
     const sessionId = createSession(db);
     setCookie(c, COOKIE_NAME, sessionId, { httpOnly: true, sameSite: 'Strict', path: '/' });
     return c.json({ username: user.username });
+  });
+
+  auth.get('/me', (c) => {
+    const sessionId = getCookie(c, COOKIE_NAME);
+    if (!sessionId || !verifySession(db, sessionId)) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    const user = getUser(db);
+    return c.json({ username: user?.username });
   });
 
   auth.post('/logout', (c) => {
