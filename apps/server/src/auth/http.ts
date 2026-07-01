@@ -15,7 +15,11 @@ export function createAuthRoutes(db: Database.Database) {
       return c.json({ error: 'a user is already registered' }, 409);
     }
     const { username, password } = await c.req.json<{ username: string; password: string }>();
-    await registerUser(db, username, password);
+    try {
+      await registerUser(db, username, password);
+    } catch {
+      return c.json({ error: 'a user is already registered' }, 409);
+    }
     const sessionId = createSession(db);
     setCookie(c, COOKIE_NAME, sessionId, { httpOnly: true, sameSite: 'Strict', path: '/' });
     return c.json({ username }, 201);

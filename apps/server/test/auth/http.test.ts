@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { migrate } from '../../src/db/index';
 import { createApp } from '../../src/http/app';
+import * as usersModule from '../../src/auth/users';
 
 function cookieFrom(res: Response): string {
   const setCookie = res.headers.get('set-cookie') ?? '';
@@ -51,5 +52,32 @@ describe('auth http flow', () => {
       body: JSON.stringify({ username: 'someone-else', password: 'another password' }),
     });
     expect(second.status).toBe(409);
+  });
+
+  it('returns 409 instead of a raw 500 when the app-level pre-check loses the race', async () => {
+    const app = createApp({ db, ingestDir: '/tmp' });
+    await app.request('/api/auth/register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'odin', password: 'correct horse battery staple' }),
+    });
+
+    // Simulate two requests interleaving before either write lands: force the
+    // handler's `hasUser` pre-check to report "no user yet" even though one
+    // was already registered above, so the request falls through to
+    // `registerUser`, which then hits the DB's PRIMARY KEY constraint.
+    const hasUserSpy = vi.spyOn(usersModule, 'hasUser').mockReturnValue(false);
+
+    const racing = await app.request('/api/auth/register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'someone-else', password: 'another password' }),
+    });
+
+    hasUserSpy.mockRestore();
+
+    expect(racing.status).toBe(409);
+    const body = await racing.json();
+    expect(body).toEqual({ error: 'a user is already registered' });
   });
 });
