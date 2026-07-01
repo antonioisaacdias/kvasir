@@ -10,6 +10,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: SonarQube scan
+        continue-on-error: true
+        run: |
+          docker run --rm \
+            --env-file /home/odin/sonar-scanner/kvasir.env \
+            -v "$(pwd):/usr/src:ro" \
+            sonarsource/sonar-scanner-cli:latest \
+            -Dsonar.working.directory=/tmp/scannerwork \
+            -Dsonar.scm.disabled=true
+
       - name: Build image
         run: docker build -t kvasir:latest .
 
