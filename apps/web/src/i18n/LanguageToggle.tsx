@@ -6,6 +6,7 @@ export function LanguageToggle() {
   return (
     <div className="flex gap-1 text-xs">
       <button
+        type="button"
         onClick={() => setLang('en')}
         className={lang === 'en' ? 'font-semibold underline' : 'text-slate-400'}
       >
@@ -13,6 +14,7 @@ export function LanguageToggle() {
       </button>
       <span className="text-slate-300">·</span>
       <button
+        type="button"
         onClick={() => setLang('pt-BR')}
         className={lang === 'pt-BR' ? 'font-semibold underline' : 'text-slate-400'}
       >
