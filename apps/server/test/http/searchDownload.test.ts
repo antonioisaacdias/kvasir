@@ -81,4 +81,32 @@ describe('POST /api/download', () => {
 
     expect(res.status).toBe(409);
   });
+
+  it('returns 400 when a required field is missing', async () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    const { app, cookie } = await loggedInApp(db, mkdtempSync(join(tmpdir(), 'kvasir-')), [fakeAdapter()]);
+
+    const res = await app.request('/api/download', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ source: 'gutenberg', externalId: '11' }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for a malformed JSON body', async () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    const { app, cookie } = await loggedInApp(db, mkdtempSync(join(tmpdir(), 'kvasir-')), [fakeAdapter()]);
+
+    const res = await app.request('/api/download', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: 'not json',
+    });
+
+    expect(res.status).toBe(400);
+  });
 });

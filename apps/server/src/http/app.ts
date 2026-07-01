@@ -32,7 +32,17 @@ export function createApp(deps?: Partial<AppDeps>) {
     });
 
     app.post('/api/download', async (c) => {
-      const body = await c.req.json<{ source: string; externalId: string; title: string; author?: string }>();
+      let body: { source: string; externalId: string; title: string; author?: string };
+      try {
+        body = await c.req.json();
+      } catch {
+        return c.json({ error: 'invalid JSON body' }, 400);
+      }
+
+      if (!body.source || !body.externalId || !body.title) {
+        return c.json({ error: 'missing required field: source, externalId, and title are required' }, 400);
+      }
+
       const adapter = adapters.find((a) => a.id === body.source);
       if (!adapter) {
         return c.json({ error: `unknown source ${body.source}` }, 400);
