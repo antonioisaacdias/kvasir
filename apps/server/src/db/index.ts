@@ -11,6 +11,17 @@ export function migrate(db: Database.Database): void {
       downloaded_at TEXT NOT NULL,
       PRIMARY KEY (source, external_id)
     );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id            INTEGER PRIMARY KEY CHECK (id = 1),
+      username      TEXT NOT NULL,
+      password_hash TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      id_hash    TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL
+    );
   `);
 }
 
