@@ -13,6 +13,14 @@ export interface SearchOutcome {
   errors: { source: string; message: string }[];
 }
 
+export interface DownloadRecord {
+  source: string;
+  externalId: string;
+  title: string;
+  author?: string;
+  downloadedAt: string;
+}
+
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   return fetch(`/api${path}`, { ...init, credentials: 'include' });
 }
@@ -44,4 +52,10 @@ export async function download(result: SearchResult): Promise<Response> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(result),
   });
+}
+
+export async function listDownloads(): Promise<DownloadRecord[]> {
+  const res = await apiFetch('/downloads');
+  const body: { downloads: DownloadRecord[] } = await res.json();
+  return body.downloads;
 }

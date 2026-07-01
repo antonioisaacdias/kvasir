@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3';
 import { createAuthRoutes, requireSession } from '../auth/http.js';
 import { searchAllSources } from '../search/searchService.js';
 import { downloadBook, AlreadyDownloadedError } from '../download/downloadService.js';
+import { listDownloads } from '../db/downloads.js';
 import { enabledAdapters } from '../adapters/registry.js';
 import type { SourceAdapter } from '../adapters/types.js';
 
@@ -24,11 +25,16 @@ export function createApp(deps?: Partial<AppDeps>) {
     app.route('/api/auth', createAuthRoutes(db));
     app.use('/api/search', requireSession(db));
     app.use('/api/download', requireSession(db));
+    app.use('/api/downloads', requireSession(db));
 
     app.get('/api/search', async (c) => {
       const query = c.req.query('q') ?? '';
       const outcome = await searchAllSources(query, adapters);
       return c.json(outcome);
+    });
+
+    app.get('/api/downloads', (c) => {
+      return c.json({ downloads: listDownloads(db) });
     });
 
     app.post('/api/download', async (c) => {

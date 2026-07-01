@@ -110,3 +110,42 @@ describe('POST /api/download', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('GET /api/downloads', () => {
+  it('rejects with no session', async () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    const app = createApp({ db, ingestDir: mkdtempSync(join(tmpdir(), 'kvasir-')), adapters: [fakeAdapter()] });
+
+    const res = await app.request('/api/downloads');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns an empty list before anything is downloaded', async () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    const { app, cookie } = await loggedInApp(db, mkdtempSync(join(tmpdir(), 'kvasir-')), [fakeAdapter()]);
+
+    const res = await app.request('/api/downloads', { headers: { cookie } });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ downloads: [] });
+  });
+
+  it('lists a book after it has been downloaded', async () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    const { app, cookie } = await loggedInApp(db, mkdtempSync(join(tmpdir(), 'kvasir-')), [fakeAdapter()]);
+
+    await app.request('/api/download', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ source: 'gutenberg', externalId: '11', title: 'Alice', author: 'Someone' }),
+    });
+
+    const res = await app.request('/api/downloads', { headers: { cookie } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.downloads).toHaveLength(1);
+    expect(body.downloads[0]).toMatchObject({ source: 'gutenberg', externalId: '11', title: 'Alice', author: 'Someone' });
+  });
+});

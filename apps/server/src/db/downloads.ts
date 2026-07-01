@@ -28,3 +28,12 @@ export function recordDownload(db: Database.Database, record: DownloadRecord): v
      VALUES (@source, @externalId, @title, @author, @downloadedAt)`,
   ).run(record);
 }
+
+export function listDownloads(db: Database.Database): DownloadRecord[] {
+  return db
+    .prepare(
+      `SELECT source, external_id AS externalId, title, author, downloaded_at AS downloadedAt
+       FROM downloads ORDER BY downloaded_at DESC`,
+    )
+    .all() as DownloadRecord[];
+}
