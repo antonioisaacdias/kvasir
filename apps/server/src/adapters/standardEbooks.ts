@@ -35,7 +35,7 @@ function asArray<T>(value: T | T[] | undefined): T[] {
 
 function acquisitionLink(entry: AtomEntry): string | undefined {
   return asArray(entry.link).find(
-    (link) => link['@_rel'] === 'http://opds-spec.org/acquisition' && link['@_type'] === 'application/epub+zip',
+    (link) => link['@_rel'].startsWith('http://opds-spec.org/acquisition') && link['@_type'] === 'application/epub+zip',
   )?.['@_href'];
 }
 
@@ -48,19 +48,34 @@ function subjects(entry: AtomEntry): string[] | undefined {
   return categories.length > 0 ? categories : undefined;
 }
 
+function searchUrl(query: string): string {
+  return `https://standardebooks.org/feeds/opds/all?query=${encodeURIComponent(query)}`;
+}
+
+function slugSearchTerms(id: string): string {
+  // externalId is the entry's canonical ebook page URL, shaped as
+  // https://standardebooks.org/ebooks/<author-slug>/<book-slug>[/<illustrator-or-translator-slug>].
+  // There is no per-book OPDS entry endpoint, so re-derive search terms from the book-title
+  // slug (the segment right after the author) and re-run the catalog search to find the
+  // matching entry again. The trailing illustrator/translator slug is unreliable as search
+  // input (rarely indexed by the catalog's full-text search).
+  const segments = id.split('/').filter(Boolean);
+  const ebooksIndex = segments.indexOf('ebooks');
+  const bookSlug = ebooksIndex >= 0 ? segments[ebooksIndex + 2] : undefined;
+  return (bookSlug ?? segments.pop() ?? id).replace(/-/g, ' ');
+}
+
 async function fetchEntry(id: string, fetchFn: typeof fetch): Promise<AtomEntry | undefined> {
-  // The id doubles as the entry's canonical URL; searching by it re-fetches the same feed shape.
-  const res = await fetchFn(`https://standardebooks.org/opds/search?query=${encodeURIComponent(id)}`);
+  const res = await fetchFn(searchUrl(slugSearchTerms(id)));
   const feed = parser.parse(await res.text()) as AtomFeed;
-  return asArray(feed.feed.entry)[0];
+  return asArray(feed.feed.entry).find((entry) => entry.id === id);
 }
 
 export const standardEbooksAdapter: SourceAdapter = {
   id: 'standard-ebooks',
 
   async search(query, fetchFn = fetch) {
-    const url = `https://standardebooks.org/opds/search?query=${encodeURIComponent(query)}`;
-    const res = await fetchFn(url);
+    const res = await fetchFn(searchUrl(query));
     const feed = parser.parse(await res.text()) as AtomFeed;
     return asArray(feed.feed.entry).map(
       (entry): SearchResult => ({
