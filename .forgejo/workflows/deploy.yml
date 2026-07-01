@@ -1,0 +1,27 @@
+# .forgejo/workflows/deploy.yml
+name: deploy
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: host
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t kvasir:latest .
+
+      - name: Save image
+        run: docker save kvasir:latest | gzip > /tmp/kvasir.tar.gz
+
+      - name: Ship image to truenas and load it
+        run: |
+          scp /tmp/kvasir.tar.gz truenas:/tmp/kvasir.tar.gz
+          ssh truenas 'gunzip -c /tmp/kvasir.tar.gz | docker load'
+
+      - name: Update Custom App
+        run: |
+          scp compose.yaml truenas:/tmp/kvasir-compose.yaml
+          ssh truenas 'sudo midclt call app.update kvasir "$(python3 -c "import json; print(json.dumps({\"custom_compose_config_string\":open(\"/tmp/kvasir-compose.yaml\").read()}))")"'
