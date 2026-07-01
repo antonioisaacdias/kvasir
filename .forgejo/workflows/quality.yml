@@ -1,0 +1,21 @@
+name: quality
+on: [push, pull_request]
+
+jobs:
+  gate:
+    runs-on: host
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: code-gates
+        run: |
+          set -a
+          . /home/odin/sonar-scanner/kvasir.env
+          set +a
+          docker run --rm --network host \
+            -e SONAR_HOST_URL="$SONAR_HOST_URL" \
+            -e SONAR_TOKEN="$SONAR_TOKEN" \
+            -v "$(pwd)":/w -w /w \
+            --entrypoint sh \
+            code-gates:latest \
+            -c 'npm --prefix apps/web ci && npm --prefix apps/server ci && code-gates all .'
