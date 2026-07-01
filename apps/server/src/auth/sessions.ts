@@ -1,7 +1,9 @@
 import { randomBytes, createHash } from 'node:crypto';
 import type Database from 'better-sqlite3';
 
-function sha256(value: string): string {
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+export function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
@@ -15,7 +17,12 @@ export function createSession(db: Database.Database): string {
 }
 
 export function verifySession(db: Database.Database, sessionId: string): boolean {
-  return db.prepare('SELECT 1 FROM auth_sessions WHERE id_hash = ?').get(sha256(sessionId)) !== undefined;
+  const cutoff = new Date(Date.now() - SESSION_TTL_MS).toISOString();
+  return (
+    db
+      .prepare('SELECT 1 FROM auth_sessions WHERE id_hash = ? AND created_at > ?')
+      .get(sha256(sessionId), cutoff) !== undefined
+  );
 }
 
 export function deleteSession(db: Database.Database, sessionId: string): void {
