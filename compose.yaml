@@ -1,10 +1,15 @@
 services:
   kvasir:
-    build: .
+    image: kvasir:latest
     container_name: kvasir
     restart: unless-stopped
+    user: "568:568"
+    environment:
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
     ports:
       - "30084:8790"
     volumes:
-      - ./data:/data
-      - ./ingest:/cwa-book-ingest
+      - /mnt/SSD/kvasir/data:/data
+      - /mnt/STORAGE/samba/calibre-ingest:/cwa-book-ingest
