@@ -95,13 +95,22 @@ async function downloadToFile(
 ): Promise<void> {
   const { stream: webStream, totalBytes } = await adapter.download(externalId, undefined, signal);
   const tracked = trackProgress(webStream, totalBytes, onProgress);
+  const writeStream = createWriteStream(filePath);
   try {
-    await pipeline(
-      Readable.fromWeb(tracked as unknown as NodeWebReadableStream),
-      createWriteStream(filePath),
-      { signal },
-    );
+    await pipeline(Readable.fromWeb(tracked as unknown as NodeWebReadableStream), writeStream, { signal });
   } catch (err) {
+    // pipeline() destroys writeStream on failure, but the underlying file descriptor
+    // may still be mid-open at that point (timing varies across Node versions) — wait
+    // for the stream to genuinely close before unlinking, so we don't race a partial
+    // file into existing right after we tried to clean it up.
+    await new Promise<void>((resolve) => {
+      if (writeStream.closed) {
+        resolve();
+        return;
+      }
+      writeStream.once('close', () => resolve());
+      writeStream.destroy();
+    });
     try {
       unlinkSync(filePath);
     } catch {

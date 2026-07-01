@@ -15,7 +15,9 @@ jobs:
           docker run --rm --network host \
             -e SONAR_HOST_URL="$SONAR_HOST_URL" \
             -e SONAR_TOKEN="$SONAR_TOKEN" \
+            -e HOST_UID="$(id -u)" \
+            -e HOST_GID="$(id -g)" \
             -v "$(pwd)":/w -w /w \
             --entrypoint sh \
             code-gates:latest \
-            -c 'npm --prefix apps/web ci && npm --prefix apps/server ci && code-gates all .'
+            -c 'sh -c "npm --prefix apps/web ci && npm --prefix apps/server ci && code-gates all ."; rc=$?; chown -R "$HOST_UID:$HOST_GID" /w; exit $rc'
