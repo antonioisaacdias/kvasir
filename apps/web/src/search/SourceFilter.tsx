@@ -1,6 +1,7 @@
 export interface SourceFilterState {
   gutenberg: boolean;
   'standard-ebooks': boolean;
+  'internet-archive': boolean;
 }
 
 export function SourceFilter({
@@ -27,6 +28,14 @@ export function SourceFilter({
           onChange={(e) => onChange({ ...state, 'standard-ebooks': e.target.checked })}
         />
         <span>Standard Ebooks</span>
+      </label>
+      <label className="flex items-center gap-1.5">
+        <input
+          type="checkbox"
+          checked={state['internet-archive']}
+          onChange={(e) => onChange({ ...state, 'internet-archive': e.target.checked })}
+        />
+        <span>Internet Archive</span>
       </label>
     </div>
   );

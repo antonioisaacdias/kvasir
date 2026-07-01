@@ -7,7 +7,7 @@ import { DownloadsList } from './DownloadsList';
 import { useTranslation } from '../i18n/useTranslation';
 import { LanguageToggle } from '../i18n/LanguageToggle';
 
-const ALL_SOURCES: SourceFilterState = { gutenberg: true, 'standard-ebooks': true };
+const ALL_SOURCES: SourceFilterState = { gutenberg: true, 'standard-ebooks': true, 'internet-archive': true };
 
 function downloadKey(source: string, externalId: string): string {
   return `${source}:${externalId}`;
