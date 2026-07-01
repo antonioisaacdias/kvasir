@@ -1,0 +1,10 @@
+services:
+  kvasir:
+    build: .
+    container_name: kvasir
+    restart: unless-stopped
+    ports:
+      - "30084:8790"
+    volumes:
+      - ./data:/data
+      - ./ingest:/cwa-book-ingest
